@@ -37,9 +37,9 @@
 4. **Set Environment Variables**
    ```bash
    railway variables set TELEGRAM_BOT_TOKEN=8339590058:AAHaNbGK9JmtrC2fuOsoiMIfK7L-q4B92No
-   railway variables set GEMINI_API_KEY=AIzaSyDxNadeDID4GhaNgUsp6Q-cWiGlQH7uvXM
+   railway variables set GEMINI_API_KEY=YOUR_GEMINI_API_KEY
    railway variables set SUPABASE_URL=https://ewqchootxeeizzhmqdks.supabase.co
-   railway variables set SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3cWNob290eGVlaXp6aG1xZGtzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3NTI0OTcsImV4cCI6MjA3OTMyODQ5N30.Rx2aYiAeqcR3U0iL-5a66qu6-v9CLiN22XKnrn8oLK0
+   railway variables set SUPABASE_KEY=YOUR_SUPABASE_KEY
    ```
 
 5. **Deploy!**

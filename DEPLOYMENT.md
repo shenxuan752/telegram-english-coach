@@ -39,9 +39,9 @@ gcloud services enable cloudbuild.googleapis.com
 ```bash
 # Create secrets for sensitive data
 echo "8339590058:AAHaNbGK9JmtrC2fuOsoiMIfK7L-q4B92No" | gcloud secrets create telegram-bot-token --data-file=-
-echo "AIzaSyDxNadeDID4GhaNgUsp6Q-cWiGlQH7uvXM" | gcloud secrets create gemini-api-key --data-file=-
+echo "YOUR_GEMINI_API_KEY" | gcloud secrets create gemini-api-key --data-file=-
 echo "https://ewqchootxeeizzhmqdks.supabase.co" | gcloud secrets create supabase-url --data-file=-
-echo "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3cWNob290eGVlaXp6aG1xZGtzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3NTI0OTcsImV4cCI6MjA3OTMyODQ5N30.Rx2aYiAeqcR3U0iL-5a66qu6-v9CLiN22XKnrn8oLK0" | gcloud secrets create supabase-key --data-file=-
+echo "YOUR_SUPABASE_KEY" | gcloud secrets create supabase-key --data-file=-
 ```
 
 ### 5. Deploy to Cloud Run
@@ -52,7 +52,7 @@ gcloud run deploy english-coach-bot \
   --platform managed \
   --region us-central1 \
   --allow-unauthenticated \
-  --set-env-vars TELEGRAM_BOT_TOKEN=8339590058:AAHaNbGK9JmtrC2fuOsoiMIfK7L-q4B92No,GEMINI_API_KEY=AIzaSyDxNadeDID4GhaNgUsp6Q-cWiGlQH7uvXM,SUPABASE_URL=https://ewqchootxeeizzhmqdks.supabase.co,SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3cWNob290eGVlaXp6aG1xZGtzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3NTI0OTcsImV4cCI6MjA3OTMyODQ5N30.Rx2aYiAeqcR3U0iL-5a66qu6-v9CLiN22XKnrn8oLK0 \
+  --set-env-vars TELEGRAM_BOT_TOKEN=8339590058:AAHaNbGK9JmtrC2fuOsoiMIfK7L-q4B92No,GEMINI_API_KEY=YOUR_GEMINI_API_KEY,SUPABASE_URL=https://ewqchootxeeizzhmqdks.supabase.co,SUPABASE_KEY=YOUR_SUPABASE_KEY \
   --min-instances 1 \
   --max-instances 1 \
   --memory 512Mi \
