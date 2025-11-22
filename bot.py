@@ -81,7 +81,7 @@ I'm your 24/7 AI Coach powered by Gemini 1.5 Flash (Fast!).
 **Daily Schedule:**
 ☀️ 09:00 AM - Word of the Day
 🚀 Mon 9 AM - Weekly Mission
-✍️ 09:00 PM - Micro-Journal
+✍️ 11:30 PM - Micro-Journal
 🎤 10:00 PM - Shadowing Practice
 
 **Features:**
