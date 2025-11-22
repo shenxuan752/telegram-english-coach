@@ -61,7 +61,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 3. Daily Journal (9 PM)
     context.job_queue.run_daily(
         send_journal_prompt,
-        time=time(hour=21, minute=0, tzinfo=pytz.timezone('America/New_York')),
+        time=time(hour=23, minute=30, tzinfo=pytz.timezone('America/New_York')),
         chat_id=chat_id,
         name=f'journal_{user_id}'
     )
