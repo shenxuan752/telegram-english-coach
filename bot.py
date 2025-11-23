@@ -62,6 +62,10 @@ Let's start! Send me a word to define."""
 
 async def schedule_user_jobs(job_queue, chat_id, user_id):
     """Schedule all recurring jobs for a user."""
+    if not job_queue:
+        logger.warning(f"JobQueue is not available. Skipping schedule for user {user_id}.")
+        return
+
     # 1. Word of the Day (9 AM)
     job_queue.run_daily(
         send_word_of_day,
