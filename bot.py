@@ -5,12 +5,11 @@ import os
 from dotenv import load_dotenv
 from datetime import time, datetime
 import pytz
-from threading import Thread
-from flask import Flask
 import random
+import asyncio
 
 from services.gemini_ai import lookup_word, generate_word_of_day, analyze_audio_file, generate_journal_prompt, generate_weekly_mission
-from services.database import save_flashcard, get_flashcards, save_journal, save_mission_completion, get_random_journal
+from services.database import save_flashcard, get_flashcards, save_journal, save_mission_completion, get_random_journal, save_user, get_all_users
 from services.tts import text_to_speech
 from services.shadowing import generate_shadowing_task, create_reference_audio, analyze_voice_attempt
 
@@ -25,54 +24,16 @@ user_shadowing_tasks = {}
 user_journal_states = {} # chat_id -> prompt_text
 user_review_states = {} # chat_id -> {words: [], index: 0}
 
-# Flask app for Render keep-alive
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "I am alive! 🤖"
-
-def run_http():
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send welcome message and set up schedules."""
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
     
-    # 1. Word of the Day (9 AM)
-    context.job_queue.run_daily(
-        send_word_of_day,
-        time=time(hour=9, minute=0, tzinfo=pytz.timezone('America/New_York')),
-        chat_id=chat_id,
-        name=f'wod_{user_id}'
-    )
+    # Save user to DB for persistence
+    await save_user(user_id)
     
-    # 2. Weekly Mission (Monday 9 AM)
-    context.job_queue.run_daily(
-        send_weekly_mission,
-        time=time(hour=9, minute=0, tzinfo=pytz.timezone('America/New_York')),
-        days=(1,), # Monday
-        chat_id=chat_id,
-        name=f'mission_{user_id}'
-    )
-    
-    # 3. Daily Journal (9 PM)
-    context.job_queue.run_daily(
-        send_journal_prompt,
-        time=time(hour=23, minute=30, tzinfo=pytz.timezone('America/New_York')),
-        chat_id=chat_id,
-        name=f'journal_{user_id}'
-    )
-    
-    # 4. Shadowing (10 PM)
-    context.job_queue.run_daily(
-        send_shadowing_task,
-        time=time(hour=22, minute=0, tzinfo=pytz.timezone('America/New_York')),
-        chat_id=chat_id,
-        name=f'shadowing_{user_id}'
-    )
+    # Schedule jobs
+    await schedule_user_jobs(context.job_queue, chat_id, user_id)
     
     welcome_msg = """👋 **Welcome to English Coach Bot!**
 
@@ -97,123 +58,170 @@ I'm your 24/7 AI Coach powered by Gemini 1.5 Flash (Fast!).
 /memory - See a random past journal
 
 Let's start! Send me a word to define."""
-    
-    await update.message.reply_text(welcome_msg)
+    await update.message.reply_text(welcome_msg, parse_mode='Markdown')
 
-# --- Feature 1: Word of the Day ---
+async def schedule_user_jobs(job_queue, chat_id, user_id):
+    """Schedule all recurring jobs for a user."""
+    # 1. Word of the Day (9 AM)
+    job_queue.run_daily(
+        send_word_of_day,
+        time=time(hour=9, minute=0, tzinfo=pytz.timezone('America/New_York')),
+        chat_id=chat_id,
+        name=f'wod_{user_id}'
+    )
+    
+    # 2. Weekly Mission (Monday 9 AM)
+    job_queue.run_daily(
+        send_weekly_mission,
+        time=time(hour=9, minute=0, tzinfo=pytz.timezone('America/New_York')),
+        days=(1,), # Monday
+        chat_id=chat_id,
+        name=f'mission_{user_id}'
+    )
+    
+    # 3. Daily Journal (9 PM)
+    job_queue.run_daily(
+        send_journal_prompt,
+        time=time(hour=23, minute=30, tzinfo=pytz.timezone('America/New_York')),
+        chat_id=chat_id,
+        name=f'journal_{user_id}'
+    )
+    
+    # 4. Shadowing (10 PM)
+    job_queue.run_daily(
+        send_shadowing_task,
+        time=time(hour=22, minute=0, tzinfo=pytz.timezone('America/New_York')),
+        chat_id=chat_id,
+        name=f'shadowing_{user_id}'
+    )
+    logger.info(f"Scheduled jobs for user {user_id}")
+
+async def restore_jobs(application):
+    """Restore jobs for all active users on startup."""
+    logger.info("Restoring jobs for all users...")
+    users = await get_all_users()
+    for user_id in users:
+        # Assuming chat_id is same as user_id for private chats
+        await schedule_user_jobs(application.job_queue, user_id, user_id)
+    logger.info(f"Restored jobs for {len(users)} users.")
+
+# --- Job Callbacks ---
+
 async def send_word_of_day(context: ContextTypes.DEFAULT_TYPE):
+    job = context.job
     try:
-        # Handle both Job context and Update context (for manual trigger)
-        if isinstance(context, ContextTypes.DEFAULT_TYPE) and context.job:
-            chat_id = context.job.chat_id
-            bot = context.bot
-        else:
-            # Manual trigger via command
-            # We need to find where to send it. 
-            # Actually, for manual commands, we should pass 'update' and reply to it.
-            # But to reuse this function, let's assume context.job is set OR we pass chat_id explicitly?
-            # Let's refactor slightly.
-            pass 
-            
+        wod = await generate_word_of_day()
+        msg = f"""☀️ **Word of the Day: {wod['word']}**
+
+**Definition:** {wod['definition']}
+**Chinese:** {wod['chinese']}
+**Example:** _{wod['example']}_"""
+        
+        await context.bot.send_message(job.chat_id, text=msg, parse_mode='Markdown')
+        
+        # Audio
+        audio_path = await text_to_speech(wod['word'])
+        with open(audio_path, 'rb') as audio:
+            await context.bot.send_voice(job.chat_id, audio)
+        os.remove(audio_path)
+        
+        # Save to flashcards automatically
+        await save_flashcard(wod, job.chat_id) # Assuming chat_id is user_id
+        
     except Exception as e:
-        logger.error(f"WOD error: {e}")
-
-# Refactored Sender Functions
-async def send_wod_logic(bot, chat_id):
-    result = await generate_word_of_day()
-    response = f"""☀️ **Word of the Day**
-
-**{result['word'].upper()}**
-
-**Definition:** {result['definition']}
-**Chinese:** {result['chinese']}
-**Example:** _{result['example']}_"""
-    
-    await bot.send_message(chat_id=chat_id, text=response, parse_mode='Markdown')
-    
-    audio_path = await text_to_speech(result['word'])
-    with open(audio_path, 'rb') as audio:
-        await bot.send_voice(chat_id=chat_id, voice=audio)
-    os.remove(audio_path)
-    
-    await save_flashcard(result, chat_id)
-
-async def send_word_of_day(context: ContextTypes.DEFAULT_TYPE):
-    """Scheduled job wrapper."""
-    await send_wod_logic(context.bot, context.job.chat_id)
-
-async def wod_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Manual command wrapper."""
-    await send_wod_logic(context.bot, update.effective_chat.id)
-
-
-# --- Feature 2: Weekly Mission ---
-async def send_mission_logic(bot, chat_id):
-    mission = await generate_weekly_mission()
-    msg = f"""🚀 **Weekly Mission: {mission['title']}**
-
-**Task:** {mission['task']}
-
-**💡 Tip:** {mission['tip']}
-
-*Reply with "Mission Complete" when done!*"""
-    await bot.send_message(chat_id=chat_id, text=msg, parse_mode='Markdown')
+        logger.error(f"Error sending WOD: {e}")
 
 async def send_weekly_mission(context: ContextTypes.DEFAULT_TYPE):
-    await send_mission_logic(context.bot, context.job.chat_id)
+    job = context.job
+    try:
+        mission = await generate_weekly_mission()
+        msg = f"""🚀 **Weekly Mission: {mission['title']}**
 
-# --- Feature 3: Micro-Journal ---
-async def send_journal_logic(bot, chat_id):
-    """Send fixed daily journal questions."""
-    prompt = """✍️ **Daily Reflection**
+{mission['description']}
 
-Please answer these 3 questions:
+**Goal:** {mission['goal']}
 
-1️⃣ **3 things you feel gratitude for and did well today**
-2️⃣ **3 things you think you can improve**  
-3️⃣ **3 things you plan to do tomorrow**
-
-*Reply with your answers to save your journal entry!*"""
-    
-    user_journal_states[chat_id] = "daily_reflection"
-    await bot.send_message(chat_id=chat_id, text=prompt, parse_mode='Markdown')
+*Reply with "Mission Complete" when done!*"""
+        await context.bot.send_message(job.chat_id, text=msg, parse_mode='Markdown')
+    except Exception as e:
+        logger.error(f"Error sending mission: {e}")
 
 async def send_journal_prompt(context: ContextTypes.DEFAULT_TYPE):
-    await send_journal_logic(context.bot, context.job.chat_id)
+    job = context.job
+    try:
+        prompt = await generate_journal_prompt()
+        user_journal_states[job.chat_id] = prompt
+        
+        msg = f"""✍️ **Micro-Journal Time**
 
-async def journal_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await send_journal_logic(context.bot, update.effective_chat.id)
+**Prompt:** {prompt}
 
-# --- Feature 4: Shadowing ---
-async def send_shadowing_logic(bot, chat_id):
-    task = await generate_shadowing_task()
-    user_shadowing_tasks[chat_id] = task
-    msg = f"""🎤 **Daily Shadowing**
-
-📰 **Context:** {task['context']}
-**Say this:** _{task['sentences']}_"""
-    await bot.send_message(chat_id=chat_id, text=msg, parse_mode='Markdown')
-    
-    audio_path = await create_reference_audio(task['sentences'])
-    with open(audio_path, 'rb') as audio:
-        await bot.send_voice(chat_id=chat_id, voice=audio)
-    os.remove(audio_path)
+*Reply with your answer (1-2 sentences).*"""
+        await context.bot.send_message(job.chat_id, text=msg, parse_mode='Markdown')
+    except Exception as e:
+        logger.error(f"Error sending journal prompt: {e}")
 
 async def send_shadowing_task(context: ContextTypes.DEFAULT_TYPE):
-    await send_shadowing_logic(context.bot, context.job.chat_id)
+    job = context.job
+    try:
+        task = await generate_shadowing_task()
+        user_shadowing_tasks[job.chat_id] = task
+        
+        msg = f"""🎤 **Shadowing Practice**
+
+**Sentence:** "{task['sentence']}"
+
+1. Listen to the audio below.
+2. Record yourself saying it.
+3. Send the voice note here."""
+        
+        await context.bot.send_message(job.chat_id, text=msg, parse_mode='Markdown')
+        
+        # Reference Audio
+        audio_path = await create_reference_audio(task['sentence'])
+        with open(audio_path, 'rb') as audio:
+            await context.bot.send_voice(job.chat_id, audio)
+        os.remove(audio_path)
+        
+    except Exception as e:
+        logger.error(f"Error sending shadowing task: {e}")
+
+# --- Commands ---
 
 async def shadowing_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await send_shadowing_logic(context.bot, update.effective_chat.id)
+    # Manual trigger
+    chat_id = update.effective_chat.id
+    # Create a dummy job object to reuse the function
+    class DummyJob:
+        def __init__(self, chat_id):
+            self.chat_id = chat_id
+    
+    context.job = DummyJob(chat_id)
+    await send_shadowing_task(context)
 
+async def wod_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    class DummyJob:
+        def __init__(self, chat_id):
+            self.chat_id = chat_id
+    context.job = DummyJob(chat_id)
+    await send_word_of_day(context)
 
-# --- Feature 5: Flashcard Review ---
+async def journal_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    class DummyJob:
+        def __init__(self, chat_id):
+            self.chat_id = chat_id
+    context.job = DummyJob(chat_id)
+    await send_journal_prompt(context)
+
 async def review_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Start a flashcard review session."""
+    """Start flashcard review session."""
     user_id = update.effective_user.id
-    cards = await get_flashcards(user_id, limit=50)
+    cards = await get_flashcards(user_id, limit=10)
     
     if not cards:
-        await update.message.reply_text("No flashcards yet! Lookup some words first.")
+        await update.message.reply_text("No flashcards to review yet! Lookup some words first.")
         return
         
     # Shuffle and pick 5
@@ -401,13 +409,9 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cards = await get_flashcards(user_id, limit=5)
     await update.message.reply_text(f"📊 You have **{len(cards) if cards else 0}** flashcards saved.", parse_mode='Markdown')
 
-def main():
-    token = os.getenv('TELEGRAM_BOT_TOKEN')
-    
-    # Keep-alive server
-    t = Thread(target=run_http)
-    t.start()
-    
+# Initialize Application
+token = os.getenv('TELEGRAM_BOT_TOKEN')
+if token:
     application = Application.builder().token(token).build()
     
     application.add_handler(CommandHandler("start", start))
@@ -421,9 +425,19 @@ def main():
     application.add_handler(CallbackQueryHandler(button_callback))
     application.add_handler(MessageHandler(filters.VOICE, handle_voice))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    
-    print("🤖 Bot running...")
-    application.run_polling()
+else:
+    application = None
 
-if __name__ == '__main__':
-    main()
+async def process_telegram_update(data: dict):
+    """Process webhook update."""
+    if not application:
+        return
+    
+    if not application._initialized:
+        await application.initialize()
+        await application.start()
+        # Restore jobs on startup
+        await restore_jobs(application)
+        
+    update = Update.de_json(data, application.bot)
+    await application.process_update(update)

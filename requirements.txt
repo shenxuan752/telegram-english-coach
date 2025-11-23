@@ -6,3 +6,5 @@ python-dotenv==1.0.1
 pytz==2025.2
 edge-tts==7.2.3
 Flask==3.0.0
+fastapi
+uvicorn

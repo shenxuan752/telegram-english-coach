@@ -55,3 +55,25 @@ async def save_mission_completion(mission_data: dict, user_id: int):
     }
     result = supabase.table('missions').insert(data).execute()
     return result.data
+
+async def save_user(user_id: int):
+    """Save user to track active users for schedule restoration."""
+    # Check if user exists
+    try:
+        existing = supabase.table('users').select('user_id').eq('user_id', str(user_id)).execute()
+        if not existing.data:
+            data = {'user_id': str(user_id)}
+            supabase.table('users').insert(data).execute()
+            return True
+    except Exception as e:
+        print(f"Error saving user: {e}")
+    return False
+
+async def get_all_users():
+    """Get all active users to restore schedules."""
+    try:
+        result = supabase.table('users').select('user_id').execute()
+        return [int(user['user_id']) for user in result.data] if result.data else []
+    except Exception as e:
+        print(f"Error getting users: {e}")
+        return []
