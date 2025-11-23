@@ -58,15 +58,16 @@ async def save_mission_completion(mission_data: dict, user_id: int):
 
 async def save_user(user_id: int):
     """Save user to track active users for schedule restoration."""
-    # Check if user exists
     try:
+        # Check if user exists
         existing = supabase.table('users').select('user_id').eq('user_id', str(user_id)).execute()
         if not existing.data:
             data = {'user_id': str(user_id)}
             supabase.table('users').insert(data).execute()
+            print(f"✅ Saved new user: {user_id}")
             return True
     except Exception as e:
-        print(f"Error saving user: {e}")
+        print(f"⚠️ Error saving user (table may not exist): {e}")
     return False
 
 async def get_all_users():
@@ -75,5 +76,6 @@ async def get_all_users():
         result = supabase.table('users').select('user_id').execute()
         return [int(user['user_id']) for user in result.data] if result.data else []
     except Exception as e:
-        print(f"Error getting users: {e}")
+        print(f"⚠️ Error getting users (table may not exist): {e}")
+        # Return empty list if table doesn't exist - bot will still work for new users
         return []

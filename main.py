@@ -18,6 +18,15 @@ async def startup_event():
         await application.initialize()
         await application.start()
     
+    # Set Webhook
+    webhook_url = os.getenv("RENDER_EXTERNAL_URL") or os.getenv("WEBHOOK_URL")
+    if webhook_url:
+        webhook_url = f"{webhook_url}/telegram-webhook"
+        await application.bot.set_webhook(url=webhook_url)
+        print(f"✅ Webhook set to: {webhook_url}")
+    else:
+        print("⚠️ No WEBHOOK_URL found. Polling mode or manual webhook required.")
+
     # Restore jobs for all users
     await restore_jobs(application)
     print("✅ Bot initialized and jobs restored.")

@@ -29,7 +29,7 @@ git push -u origin main
    - **Name:** `english-coach-bot`
    - **Runtime:** Python 3
    - **Build Command:** `pip install -r requirements.txt`
-   - **Start Command:** `python bot.py`
+   - **Start Command:** `python main.py`
    - **Instance Type:** Free
 
 5. **Environment Variables** (Click "Advanced" or "Environment"):
