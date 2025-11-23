@@ -60,10 +60,10 @@ async def save_user(user_id: int):
     """Save user to track active users for schedule restoration."""
     try:
         # Check if user exists
-        existing = supabase.table('users').select('user_id').eq('user_id', str(user_id)).execute()
+        existing = supabase.table('english_coach_users').select('user_id').eq('user_id', str(user_id)).execute()
         if not existing.data:
             data = {'user_id': str(user_id)}
-            supabase.table('users').insert(data).execute()
+            supabase.table('english_coach_users').insert(data).execute()
             print(f"✅ Saved new user: {user_id}")
             return True
     except Exception as e:
@@ -73,7 +73,7 @@ async def save_user(user_id: int):
 async def get_all_users():
     """Get all active users to restore schedules."""
     try:
-        result = supabase.table('users').select('user_id').execute()
+        result = supabase.table('english_coach_users').select('user_id').execute()
         return [int(user['user_id']) for user in result.data] if result.data else []
     except Exception as e:
         print(f"⚠️ Error getting users (table may not exist): {e}")
