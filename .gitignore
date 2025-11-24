@@ -3,5 +3,9 @@ __pycache__/
 *.pyc
 .env
 .env.local
+.env.bak
+.env.backup
+*.env.bak
+*.env.backup
 *.log
 .DS_Store

@@ -92,7 +92,20 @@ async def analyze_audio_file(audio_path: str) -> dict:
 
 async def generate_word_of_day() -> dict:
     """Generate interesting word for the day."""
-    prompt = """Generate ONE interesting business/MBA vocabulary word for international students.
+    from datetime import datetime
+    import pytz
+    
+    # Get current date in New York timezone
+    ny_tz = pytz.timezone('America/New_York')
+    today = datetime.now(ny_tz).strftime('%Y-%m-%d')
+    
+    # Use date as seed in prompt to ensure consistency within the day
+    prompt = f"""Generate ONE interesting business/MBA vocabulary word for international students.
+    
+    Today's date: {today}
+    
+    Important: Generate a DIFFERENT word each day based on the date. Use the date to select a unique word.
+    Do NOT repeat words from previous days.
     
     Format:
     Word: [word]
