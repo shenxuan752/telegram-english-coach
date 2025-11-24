@@ -145,13 +145,11 @@ async def generate_word_of_day() -> dict:
     }
 
 async def generate_journal_prompt() -> str:
-    """Generate a reflective journal prompt."""
-    prompt = """Generate a short, engaging reflection question for an MBA student's daily journal.
-    Focus on: leadership, learning, challenges, or gratitude.
-    Keep it under 15 words.
-    """
-    response = model.generate_content(prompt)
-    return response.text.strip()
+    """Return the standard daily reflection prompt."""
+    return """
+1. 3 things you feel gratitude for and did well
+2. 3 things you think you can do better
+3. 3 things you plan to do tomorrow"""
 
 async def generate_weekly_mission() -> dict:
     """Generate a real-world English mission."""
