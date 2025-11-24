@@ -195,6 +195,9 @@ async def send_shadowing_task(context: ContextTypes.DEFAULT_TYPE):
 async def shadowing_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Manual trigger
     chat_id = update.effective_chat.id
+    # Ensure user is saved
+    await save_user(update.effective_user.id)
+    
     # Create a dummy job object to reuse the function
     class DummyJob:
         def __init__(self, chat_id):
@@ -205,6 +208,9 @@ async def shadowing_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def wod_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+    # Ensure user is saved
+    await save_user(update.effective_user.id)
+    
     class DummyJob:
         def __init__(self, chat_id):
             self.chat_id = chat_id
@@ -213,6 +219,9 @@ async def wod_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def journal_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+    # Ensure user is saved
+    await save_user(update.effective_user.id)
+    
     class DummyJob:
         def __init__(self, chat_id):
             self.chat_id = chat_id
