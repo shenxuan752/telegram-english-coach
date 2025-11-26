@@ -417,6 +417,20 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='Markdown'
     )
 
+async def debug_jobs_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """List all scheduled jobs."""
+    jobs = context.job_queue.jobs()
+    if not jobs:
+        await update.message.reply_text("No jobs scheduled.")
+        return
+        
+    msg = "📅 **Scheduled Jobs:**\n\n"
+    for job in jobs:
+        next_run = job.next_t.strftime("%Y-%m-%d %H:%M:%S %Z") if job.next_t else "Unknown"
+        msg += f"🔹 **{job.name}**\n   Next run: {next_run}\n\n"
+        
+    await update.message.reply_text(msg, parse_mode='Markdown')
+
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     cards = await get_flashcards(user_id, limit=5)
@@ -434,6 +448,7 @@ if token:
     application.add_handler(CommandHandler("review", review_command))
     application.add_handler(CommandHandler("stats", stats_command))
     application.add_handler(CommandHandler("memory", memory_command))
+    application.add_handler(CommandHandler("debug_jobs", debug_jobs_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CallbackQueryHandler(button_callback))
     application.add_handler(MessageHandler(filters.VOICE, handle_voice))

@@ -47,7 +47,7 @@ Give me ONE varied, interesting sentence!"""
     
     return {
         'context': context or "Pronunciation practice",
-        'sentences': sentence
+        'sentence': sentence
     }
 
 async def create_reference_audio(text: str, filename: str = 'shadowing_reference.mp3') -> str:
